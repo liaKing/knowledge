@@ -1,0 +1,33 @@
+import openai
+
+# 1. 配置 LiteLLM 服务的 Base URL
+LITELLM_BASE_URL = "https://api-dev.joycloud.ai/v1" 
+
+# 2. 填入你从 LiteLLM 获取的 API Key
+LITELLM_API_KEY = "sk-sAnMhkuKSOhN6pqfbwMSsQ"
+
+# 初始化客户端
+client = openai.OpenAI(
+    api_key=LITELLM_API_KEY,
+    base_url=LITELLM_BASE_URL
+)
+
+# 3. 指定模型名称
+# 这里的 model 名称取决于你在 LiteLLM config.yaml 中的配置。
+# - 如果你没有为模型配置别名，直接调用 bedrock 的格式通常是 "bedrock/global.anthropic.claude-sonnet-4-6"
+# - 如果你在配置中设置了 model_name 别名（例如 "claude-sonnet"），则直接填别名即可
+model_name = "claude-4-6-sonnet"
+
+# 发起聊天请求
+response = client.chat.completions.create(
+    model=model_name,
+    messages=[
+        {"role": "system", "content": "你是一个有帮助的 AI 助手。"},
+        {"role": "user", "content": "Hello"}
+    ],
+    max_tokens=10 # 对应你命令行中的 max_tokens
+)
+
+# 打印回复内容
+print("模型回复内容:")
+print(response.choices[0].message.content)
