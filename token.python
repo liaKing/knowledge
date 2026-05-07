@@ -1,0 +1,103 @@
+# Token 费用计算 Demo
+# 根据 LiteLLM 返回的 token 消耗计算预估费用
+
+def calculate_cost(model_name, prompt_tokens, completion_tokens, cache_read_tokens=0, cache_write_tokens=0, reasoning_tokens=0):
+    """
+    计算模型调用费用
+    :param model_name: 模型名称
+    :param prompt_tokens: 总输入 tokens
+    :param completion_tokens: 总输出 tokens
+    :param cache_read_tokens: 缓存命中的 tokens
+    :param cache_write_tokens: 缓存创建的 tokens
+    :param reasoning_tokens: 思考(推理) tokens (通常已包含在 completion_tokens 中)
+    :return: (总费用, 各项明细)
+    """
+    
+    # 价格配置 (每 1M tokens 的美元价格)
+    # 数据参考自 LiteLLM / 各模型供应商官网
+    pricing_config = {
+        "bedrock/global.anthropic.claude-sonnet-4-6": {
+            "input": 3.0,        # $3 / 1M tokens
+            "output": 15.0,      # $15 / 1M tokens
+            "cache_read": 0.30,   # $0.30 / 1M tokens (Claude 缓存读取通常是 0.1x)
+            "cache_write": 3.75   # $3.75 / 1M tokens (Claude 缓存写入通常是 1.25x)
+        },
+        "gpt-4o": {
+            "input": 5.0,
+            "output": 15.0,
+            "cache_read": 2.50,
+            "cache_write": 5.0
+        }
+    }
+    
+    if model_name not in pricing_config:
+        return None, f"未找到模型 {model_name} 的价格配置"
+    
+    prices = pricing_config[model_name]
+    
+    # 1. 计算缓存相关费用
+    # 命中缓存的部分按 cache_read 计费
+    # 写入缓存的部分按 cache_write 计费
+    # 剩余的普通输入按 input 计费
+    regular_input_tokens = prompt_tokens - cache_read_tokens - cache_write_tokens
+    
+    cost_input = (regular_input_tokens / 1_000_000) * prices["input"]
+    cost_cache_read = (cache_read_tokens / 1_000_000) * prices["cache_read"]
+    cost_cache_write = (cache_write_tokens / 1_000_000) * prices["cache_write"]
+    
+    # 2. 计算输出费用
+    # 推理 token (reasoning_tokens) 通常按输出价格计费，且已经包含在 completion_tokens 中
+    cost_output = (completion_tokens / 1_000_000) * prices["output"]
+    
+    total_cost = cost_input + cost_cache_read + cost_cache_write + cost_output
+    
+    details = {
+        "regular_input_cost": cost_input,
+        "cache_read_cost": cost_cache_read,
+        "cache_write_cost": cost_cache_write,
+        "output_cost": cost_output,
+        "total_cost": total_cost
+    }
+    
+    return total_cost, details
+
+# ==========================================
+# 示例数据 (你可以根据实际请求修改以下值)
+# ==========================================
+model_name = "bedrock/global.anthropic.claude-sonnet-4-6"
+prompt_tokens = 7028737
+completion_tokens = 32911
+
+# 详情数据 (如果有)
+cache_read = 3156058
+cache_write = 353307
+reasoning = 0
+
+# 执行计算
+total, details = calculate_cost(
+    model_name, 
+    prompt_tokens, 
+    completion_tokens, 
+    cache_read_tokens=cache_read, 
+    cache_write_tokens=cache_write, 
+    reasoning_tokens=reasoning
+)
+
+if total is not None:
+    print(f"--- 费用计算报告 ---")
+    print(f"模型: {model_name}")
+    print(f"总计 Token: {prompt_tokens + completion_tokens}")
+    print(f"  - 输入: {prompt_tokens} (普通: {prompt_tokens - cache_read - cache_write}, 缓存读: {cache_read}, 缓存写: {cache_write})")
+    print(f"  - 输出: {completion_tokens} (其中推理 Token: {reasoning})")
+    print(f"--- 费用详情 ---")
+    print(f"输入费用:    ${details['regular_input_cost']:.10f}")
+    if cache_read > 0:  print(f"缓存读取费用: ${details['cache_read_cost']:.10f}")
+    if cache_write > 0: print(f"缓存写入费用: ${details['cache_write_cost']:.10f}")
+    print(f"输出费用:    ${details['output_cost']:.10f}")
+    print(f"------------------")
+    print(f"总费用:      ${details['total_cost']:.10f}")
+    discount_rate = 0.4
+    discounted_cost = details['total_cost'] * discount_rate
+    print(f"折后费用:    ${discounted_cost:.10f}")
+else:
+    print(f"错误: {details}")

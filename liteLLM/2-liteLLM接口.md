@@ -524,3 +524,17 @@ model\_management\_endpoints.py (管理可用模型的接口)
 - model : 支持 ，按模型名称过滤。
 - api\_key : 支持 。它接受一个可选的 api\_key 参数。如果用户不是管理员且未提供 api\_key ，它将按用户自己的 API 密钥进行过滤。
 
+
+
+
+
+
+# 模型列表
+
+有，而且基本已经满足你说的“两种模型名”，只是分布在两个接口里。
+GET /v1/models（或 /models）
+返回的是用户可用/可调用的模型名（即路由层模型组名，通常就是你配置给用户用的名字，比如 claude-4-6-sonnet）。
+GET /v1/model/info（或 /model/info）
+返回更完整的 deployment 信息，包含：
+model_name：用户使用时的模型名
+litellm_params.model：底层实际模型名（比如 bedrock/...、anthropic/... 这种）
